@@ -115,8 +115,9 @@ class ATokenTransformer(nn.Module):
         assert self.fsq is not None, "FSQ not enabled"
         B, N, G = tokens.shape
         z_q = self.fsq.decode_codes(tokens)
-        C = self.from_latent.in_features
-        rope_in = MultiAxisRoPE(head_dim=C // (self.dec.blocks[0].attn.heads), num_axes=2)
+        dec_model_dim = self.from_latent.out_features
+        num_heads = self.dec.blocks[0].attn.heads
+        rope_in = MultiAxisRoPE(head_dim=dec_model_dim // num_heads, num_axes=2)
         sincos = rope_in.build_2d_sincos(hw, tokens.device)
         h_dec = self.from_latent(z_q)
         h_dec = self.dec(h_dec, sincos)

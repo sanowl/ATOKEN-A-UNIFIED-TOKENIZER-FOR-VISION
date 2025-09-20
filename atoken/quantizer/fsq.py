@@ -106,5 +106,6 @@ class FSQQuantizer(nn.Module):
             tmp = tmp // self.K
         digits = torch.cat(digits, dim=-1)  # (B,N,G,Dg)
         levels = (self.base_levels.view(1, 1, 1, 1, self.K) * scales.view(1, 1, G, self.Dg, 1))
-        q = torch.gather(levels, -1, digits).squeeze(-1)  # (B,N,G,Dg)
+        levels_exp = levels.expand(B, N, G, self.Dg, self.K)
+        q = torch.gather(levels_exp, -1, digits.unsqueeze(-1)).squeeze(-1)  # (B,N,G,Dg)
         return q.view(B, N, self.dim)

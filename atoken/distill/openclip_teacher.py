@@ -16,13 +16,26 @@ class OpenCLIPTeacher:
 
     @torch.no_grad()
     def encode_images(self, images: torch.Tensor) -> torch.Tensor:
-        # images assumed in [0,1]; preprocess expects PIL or normalized; we approximate with model.visual.forward on normalized tensors
-        x = images * 255.0
-        # Fallback: rely on model.encode_image which expects transforms; we do minimal compat
-        return torch.nn.functional.normalize(self.model.encode_image(images.to(self.device)), dim=-1)
+        """Encode a batch of images (B,3,H,W) in [0,1] using OpenCLIP preprocess.
+
+        Falls back to direct encode if torchvision/PIL not available.
+        """
+        imgs = images.to(self.device)
+        try:
+            from torchvision.transforms.functional import to_pil_image
+            # Apply preprocess per image
+            proc = []
+            for i in range(imgs.shape[0]):
+                pil = to_pil_image(imgs[i].cpu().clamp(0, 1))
+                proc.append(self.preprocess(pil).to(self.device))
+            x = torch.stack(proc, dim=0)
+            feats = self.model.encode_image(x)
+        except Exception:
+            # Fallback without preprocess
+            feats = self.model.encode_image(imgs)
+        return torch.nn.functional.normalize(feats, dim=-1)
 
     @torch.no_grad()
     def encode_texts(self, texts: List[str]) -> torch.Tensor:
         toks = self.tokenizer(texts).to(self.device)
         return torch.nn.functional.normalize(self.model.encode_text(toks), dim=-1)
-
